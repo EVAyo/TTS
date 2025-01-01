@@ -9,16 +9,23 @@ import java.util.List;
 
 public class TtsStyleManger {
     //单例
-    private static TtsStyleManger instance;
+    private static volatile TtsStyleManger instance;
 
     public static TtsStyleManger getInstance() {
         if (instance == null) {
-            instance = new TtsStyleManger();
+            synchronized (TtsStyleManger.class) {
+                if (instance == null) {
+                    instance = new TtsStyleManger();
+                }
+            }
+
         }
         return instance;
     }
 
     private final List<TtsStyle> styles;
+
+    //https://docs.microsoft.com/zh-cn/azure/cognitive-services/speech-service/speech-synthesis-markup?tabs=csharp#adjust-speaking-styles
 
     private TtsStyleManger() {
         styles = new ArrayList<>(22);
@@ -44,20 +51,27 @@ public class TtsStyleManger {
         styles.add(new TtsStyle("新闻(休闲）", "newscast-casual", "以通用和随意的语气叙述新闻。"));
         styles.add(new TtsStyle("新闻(正式）", "newscast-formal", "以正式、自信、权威的语气叙述新闻。"));
         styles.add(new TtsStyle("旁白-专业", "narration-professional", "对内容阅读表达专业、客观的语气。（云扬，Aria）"));
-        styles.add(new TtsStyle("轻松阅读", "narration-relaxed", "适合阅读轻松的文章(云希)"));
-        //styles.add(new TtsStyle("嫉妒","envy","Envy"));//Envy
+        styles.add(new TtsStyle("轻松阅读", "narration-relaxed", "适合阅读轻松的文章(云希，云健)"));
+
+        styles.add(new TtsStyle("体育解说", "Sports_commentary", "体育解说(云健)"));
+        styles.add(new TtsStyle("体育解说(兴奋)", "Sports_commentary_excited", "兴奋语气的体育解说(云健)"));
+        styles.add(new TtsStyle("乐观的广告", "Advertisement_upbeat", "(云皓)Advertisement_upbeat"));
+
 
         Log.e("Style", styles.size() + "");
 
 
     }
 
-    public @NonNull List<TtsStyle> getStyles() {
+    public @NonNull
+    List<TtsStyle> getStyles() {
         return this.styles;
     }
+
     @SuppressWarnings("unused")
-    public @NonNull TtsStyle get(int index) {
-        if (index>=0&&index < styles.size()) {
+    public @NonNull
+    TtsStyle get(int index) {
+        if (index >= 0 && index < styles.size()) {
             return styles.get(index);
         }
         return new TtsStyle("默认", "", "默认值");

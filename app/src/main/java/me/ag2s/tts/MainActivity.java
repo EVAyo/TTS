@@ -1,6 +1,7 @@
 package me.ag2s.tts;
 
 import static me.ag2s.tts.services.Constants.CUSTOM_VOICE;
+import static me.ag2s.tts.services.Constants.USE_PREVIEW;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -37,9 +38,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import me.ag2s.tts.adapters.TtsActorAdapter;
 import me.ag2s.tts.adapters.TtsStyleAdapter;
+import me.ag2s.tts.data.TtsActorManger;
 import me.ag2s.tts.databinding.ActivityMainBinding;
 import me.ag2s.tts.services.Constants;
-import me.ag2s.tts.services.TtsActorManger;
 import me.ag2s.tts.services.TtsDictManger;
 import me.ag2s.tts.services.TtsFormatManger;
 import me.ag2s.tts.services.TtsOutputFormat;
@@ -66,6 +67,7 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
 
         connectToText2Speech();
 
@@ -97,18 +99,24 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
         linearLayoutManager.scrollToPositionWithOffset(styleIndex, 0);
         ttsStyleAdapter.setItemClickListener((position, item) -> APP.putInt(Constants.VOICE_STYLE_INDEX, position));
 
-        boolean useCustomVoice = APP.getBoolean(Constants.USE_CUSTOM_VOICE, true);//sharedPreferences.getBoolean(Constants.USE_CUSTOM_VOICE, true);
-        binding.switchUseCustomVoice.setChecked(useCustomVoice);
+        //boolean useCustomVoice = APP.getBoolean(Constants.USE_CUSTOM_VOICE, true);//sharedPreferences.getBoolean(Constants.USE_CUSTOM_VOICE, true);
+        binding.switchUseCustomVoice.setChecked(APP.getBoolean(Constants.USE_CUSTOM_VOICE, true));
         binding.switchUseCustomVoice.setOnCheckedChangeListener((buttonView, isChecked) -> APP.putBoolean(Constants.USE_CUSTOM_VOICE, isChecked));
 
-        boolean useSplitSentence = APP.getBoolean(Constants.SPLIT_SENTENCE, false);//sharedPreferences.getBoolean(Constants.USE_CUSTOM_VOICE, true);
-        binding.switchUseSplitSentence.setChecked(useSplitSentence);
+
+        binding.switchUseSplitSentence.setChecked(APP.getBoolean(Constants.SPLIT_SENTENCE, false));
         binding.switchUseSplitSentence.setOnCheckedChangeListener((buttonView, isChecked) -> APP.putBoolean(Constants.SPLIT_SENTENCE, isChecked));
 
 
-        boolean useDict = APP.getBoolean(Constants.USE_DICT, false);
-        binding.switchUseDict.setChecked(useDict);
+        binding.switchUseDict.setChecked(APP.getBoolean(Constants.USE_DICT, false));
         binding.switchUseDict.setOnCheckedChangeListener((buttonView, isChecked) -> APP.putBoolean(Constants.USE_DICT, isChecked));
+        APP.putBoolean(USE_PREVIEW, false);
+        showStyleView(APP.getBoolean(Constants.USE_PREVIEW, false));
+//        binding.switchUsePreview.setChecked(APP.getBoolean(Constants.USE_PREVIEW, false));
+//        binding.switchUsePreview.setOnCheckedChangeListener(((buttonView, isChecked) -> {
+//            showStyleView(isChecked);
+//            APP.putBoolean(USE_PREVIEW, isChecked);
+//        }));
 
 
         TtsActorAdapter actorAdapter = new TtsActorAdapter(TtsActorManger.getInstance().getActors());
@@ -127,11 +135,10 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
             }
 
             Locale locale = item.getLocale();
-            if (!connected) {
-                connectToText2Speech();
-            }
 
-            if (!textToSpeech.isSpeaking()) {
+
+            if (textToSpeech != null && !textToSpeech.isSpeaking()) {
+                connectToText2Speech();
                 Bundle bundle = new Bundle();
                 bundle.putString(CUSTOM_VOICE, item.getShortName());
                 bundle.putInt(Constants.CUSTOM_VOICE_INDEX, position);
@@ -142,10 +149,15 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
                 bundle.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "Sample");
                 textToSpeech.speak(TtsVoiceSample.getByLocate(this, locale), TextToSpeech.QUEUE_FLUSH, bundle, MainActivity.class.getName() + mNextRequestId.getAndIncrement());
             } else {
-                Toast.makeText(MainActivity.this, "" + item.getShortName(), Toast.LENGTH_SHORT).show();
+                if (textToSpeech == null) {
+                    connectToText2Speech();
+                }
+                Toast.makeText(MainActivity.this, item.getShortName(), Toast.LENGTH_SHORT).show();
             }
 
         });
+
+        Toast.makeText(this, "选择预览版语音时,如果卡住了，杀掉应用重进！！！", Toast.LENGTH_LONG).show();
 
 
         if (APP.getBoolean(Constants.USE_AUTO_UPDATE, true)) {
@@ -160,19 +172,33 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
      * 连接Text2Speech
      */
     private void connectToText2Speech() {
-        textToSpeech = new TextToSpeech(MainActivity.this, status -> {
+        if (textToSpeech == null || textToSpeech.speak("", TextToSpeech.QUEUE_FLUSH, null, null) != TextToSpeech.SUCCESS) {
+            textToSpeech = new TextToSpeech(MainActivity.this, status -> {
 
-            if (status == TextToSpeech.SUCCESS) {
-                int result = textToSpeech.setLanguage(Locale.CHINA);
-                if (result != TextToSpeech.LANG_MISSING_DATA
-                        && result != TextToSpeech.LANG_NOT_SUPPORTED) {
-                    connected = true;
-                    if (!textToSpeech.isSpeaking()) {
-                        textToSpeech.speak("初始化成功。", TextToSpeech.QUEUE_FLUSH, null, null);
+                if (status == TextToSpeech.SUCCESS) {
+                    int result = textToSpeech.setLanguage(Locale.CHINA);
+                    if (result != TextToSpeech.LANG_MISSING_DATA
+                            && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+                        connected = true;
+                        if (!textToSpeech.isSpeaking()) {
+                            textToSpeech.speak("初始化成功。", TextToSpeech.QUEUE_FLUSH, null, null);
+                        }
                     }
                 }
-            }
-        }, this.getPackageName());
+            }, this.getPackageName());
+        }
+
+    }
+
+
+    private void showStyleView(boolean show) {
+        if (show) {
+            binding.rvVoiceStyles.setVisibility(View.VISIBLE);
+            binding.ttsStyleDegreeParent.setVisibility(View.VISIBLE);
+        } else {
+            binding.rvVoiceStyles.setVisibility(View.GONE);
+            binding.ttsStyleDegreeParent.setVisibility(View.GONE);
+        }
     }
 
 
@@ -273,9 +299,10 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
     }
 
     private void checkUpdate() {
+        //getToken();
         HttpTool.executorService.submit(() -> {
             try {
-                String url = "https://api.github.com/repos/ag2s20150909/TTS/releases/latest";
+                String url = "https://api.github.com/repos/ag2s20150909/tts/releases/latest";
                 String s = HttpTool.httpGet(url);
                 //Log.e(TAG, s);
                 JSONObject json = new JSONObject(s);
@@ -312,10 +339,10 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
                     .setTitle("有新版本")
                     .setMessage("发现新版本:" + tag + "\n" + body)
                     .setPositiveButton("确定", (dialog, which) -> {
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setData(Uri.parse(downloadUrl));
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(intent);
+                                Intent intent = new Intent(Intent.ACTION_VIEW);
+                                intent.setData(Uri.parse(downloadUrl));
+                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(intent);
                             }
 
                     )

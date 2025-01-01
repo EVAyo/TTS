@@ -1,20 +1,39 @@
 package me.ag2s.tts.utils;
 
+import android.util.Log;
+
+import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import me.ag2s.tts.services.Constants;
+import okio.BufferedSink;
+import okio.BufferedSource;
 import okio.ByteString;
+import okio.Okio;
 
 public class CommonTool {
 
     static final Pattern NoVoicePattern = Pattern.compile("[\\s\\p{C}\\p{P}\\p{Z}\\p{S}]");
     static final SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd yyyy HH:mm:ss 'GMT'Z", Locale.ENGLISH);
+
+
+
+
+
+
+    public static String sha256Encode(String s){
+        return ByteString.of(s.getBytes(StandardCharsets.UTF_8)).sha256().hex();
+    }
 
 
 //    /**
@@ -96,24 +115,21 @@ public class CommonTool {
         while (Character.isWhitespace(sb.charAt(st)) || sb.charAt(st) == '　') {
             st++;
         }
-        if(st>0){
-            sb.delete(0,st);
+        if (st > 0) {
+            sb.delete(0, st);
         }
 
 
         //去除后面的空格
         int ed = sb.length();
-        while (Character.isWhitespace(sb.charAt(ed-1)) || sb.charAt(ed-1) == '　'){
+        while (Character.isWhitespace(sb.charAt(ed - 1)) || sb.charAt(ed - 1) == '　') {
             ed--;
         }
-        if(ed<sb.length()){
-            sb.delete(ed,sb.length());
+        if (ed < sb.length()) {
+            sb.delete(ed, sb.length());
         }
 
     }
-
-
-
 
 
     public static void replace(StringBuilder builder, String from, String to) {
@@ -125,15 +141,11 @@ public class CommonTool {
         }
     }
 
-//    public static void replaceAll(StringBuilder sb, String regex, String replacement) {
-//        Pattern pattern = Pattern.compile(regex);
-//        Matcher m = pattern.matcher(sb);
-//        int start = 0;
-//        while (m.find(start)) {
-//            sb.replace(m.start(), m.end(), replacement);
-//            start = m.start() + replacement.length();
-//        }
-//    }
+    public static void replaceAll(StringBuilder sb, String regex, String replacement) {
+        String s = Pattern.compile(regex).matcher(sb.toString()).replaceAll(replacement);
+        sb.delete(0, sb.length());
+        sb.append(s);
+    }
 
 //    public static void replaceAll(StringBuilder sb, Pattern pattern, String replacement) {
 //        Matcher m = pattern.matcher(sb);
@@ -197,6 +209,7 @@ public class CommonTool {
         return new String(Character.toChars(firstLetter)) + new String(Character.toChars(secondLetter));
     }
 //
+
     /**
      * 提供（相对）精确的除法运算。当发生除不尽的情况时，由scale参数指
      * 定精度，以后的数字四舍五入。
@@ -213,7 +226,7 @@ public class CommonTool {
         }
         BigDecimal b1 = new BigDecimal(Double.toString(v1));
         BigDecimal b2 = new BigDecimal(Double.toString(v2));
-        return b1.divide(b2, scale, BigDecimal.ROUND_HALF_UP).doubleValue();
+        return b1.divide(b2, scale, RoundingMode.HALF_UP).doubleValue();
     }
 
     /**
@@ -225,4 +238,23 @@ public class CommonTool {
     public static String getMD5String(String str) {
         return ByteString.of(str.getBytes(StandardCharsets.UTF_8)).md5().hex();
     }
+
+    public static String readText(File file) {
+        try (BufferedSource source = Okio.buffer(Okio.source(file))) {
+            return source.readUtf8();
+        } catch (IOException e) {
+            return e.getLocalizedMessage();
+        }
+
+    }
+
+    public static void writeText(File file, String text) {
+        try (BufferedSink sink = Okio.buffer(Okio.sink(file))) {
+            sink.writeUtf8(text);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
 }
